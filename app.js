@@ -93,6 +93,7 @@ document.getElementById("saveStudy").addEventListener("click", async () => {
 
   console.log("inserted:", data);
   alert("保存しました！");
+  await loadTodaySummary();
 });
 
 function formatMinutes(min) {
