@@ -10,92 +10,6 @@ const supabaseClient = createClient(
 
 const statusEl = document.getElementById("status");
 
-// 初期表示：ログイン状態チェック
-(async () => {
-  const { data } = await supabaseClient.auth.getSession();
-  const session = data.session;
-
-  if (session?.user) {
-    statusEl.textContent = `ログイン中: ${session.user.email}`;
-  } else {
-    statusEl.textContent = "未ログイン";
-  }
-})();
-
-// Magic Link送信
-document.getElementById("login").addEventListener("click", async () => {
-  const email = document.getElementById("email").value.trim();
-  if (!email) return alert("メールアドレスを入力してください");
-
-  statusEl.textContent = "ログインリンクを送信中…";
-
-  const { error } = await supabaseClient.auth.signInWithOtp({
-    email,
-    options: {
-      // GitHub Pagesに戻す
-      emailRedirectTo: window.location.origin + window.location.pathname
-    }
-  });
-
-  if (error) {
-    console.error(error);
-    statusEl.textContent = "送信失敗";
-    alert("エラー: " + error.message);
-    return;
-  }
-
-  statusEl.textContent = "メールを確認してください（ログインリンクを送りました）";
-});
-
-// ログアウト（任意）: コンソールで logout() と打てば実行できます
-window.logout = async () => {
-  await supabaseClient.auth.signOut();
-  location.reload();
-};
-
-// 学習ログ保存
-document.getElementById("saveStudy").addEventListener("click", async () => {
-  const minutes = Number(document.getElementById("minutes").value);
-  if (!minutes || minutes <= 0) return alert("分を入力してください");
-
-  // 1) ログイン確認
-  const { data: userData, error: userErr } = await supabaseClient.auth.getUser();
-  if (userErr) {
-    console.error(userErr);
-    return alert("ユーザー取得エラー: " + userErr.message);
-  }
-  const user = userData.user;
-  if (!user) return alert("未ログインです");
-
-  // 2) ★先にカテゴリ取得（ここが重要）
-  const categoryEl = document.getElementById("category");
-  const category = categoryEl ? categoryEl.value : "Review / Test";
-
-  // 3) insert payload
-  const payload = {
-    user_id: user.id,
-    date: new Date().toISOString().slice(0, 10),
-    category,
-    minutes,
-    memo: null
-  };
-
-  const { data, error } = await supabaseClient
-    .from("study_logs")
-    .insert(payload)
-    .select(); // 返り値を受け取ってデバッグしやすくする
-
-  if (error) {
-    console.error(error);
-    alert("保存エラー: " + error.message);
-    return;
-  }
-
-  console.log("inserted:", data);
-  alert("保存しました！");
-  await loadTodaySummary();
-});
-
 function formatMinutes(min) {
   const m = Number(min) || 0;
   const h = Math.floor(m / 60);
@@ -108,7 +22,13 @@ async function loadTodaySummary() {
   if (!summaryEl) return;
 
   // ログインユーザー取得
-  const { data: userData } = await supabaseClient.auth.getUser();
+  const { data: userData, error: userErr } = await supabaseClient.auth.getUser();
+  if (userErr) {
+    console.error(userErr);
+    summaryEl.textContent = "集計の取得に失敗しました";
+    return;
+  }
+
   const user = userData?.user;
   if (!user) {
     summaryEl.textContent = "未ログイン";
@@ -117,7 +37,7 @@ async function loadTodaySummary() {
 
   const today = new Date().toISOString().slice(0, 10);
 
-  // 今日のログを取得（自分の分だけ：RLSで守られてる）
+  // 今日のログを取得（RLSで自分の分だけ見えるが、念のため user_id でも絞る）
   const { data, error } = await supabaseClient
     .from("study_logs")
     .select("category, minutes")
@@ -151,4 +71,105 @@ async function loadTodaySummary() {
     <div>合計: <b>${formatMinutes(total)}</b></div>
     <ul>${rows || "<li>データなし</li>"}</ul>
   `;
+}
+
+// 初期表示：ログイン状態チェック + 集計表示
+(async () => {
+  const { data } = await supabaseClient.auth.getSession();
+  const session = data.session;
+
+  if (statusEl) {
+    if (session?.user) {
+      statusEl.textContent = `ログイン中: ${session.user.email}`;
+    } else {
+      statusEl.textContent = "未ログイン";
+    }
+  }
+
+  // ★ページ表示時にも集計を表示する
+  await loadTodaySummary();
+})();
+
+// Magic Link送信
+const loginBtn = document.getElementById("login");
+if (loginBtn) {
+  loginBtn.addEventListener("click", async () => {
+    const emailEl = document.getElementById("email");
+    const email = emailEl ? emailEl.value.trim() : "";
+    if (!email) return alert("メールアドレスを入力してください");
+
+    if (statusEl) statusEl.textContent = "ログインリンクを送信中…";
+
+    const { error } = await supabaseClient.auth.signInWithOtp({
+      email,
+      options: {
+        // GitHub Pagesに戻す
+        emailRedirectTo: window.location.origin + window.location.pathname
+      }
+    });
+
+    if (error) {
+      console.error(error);
+      if (statusEl) statusEl.textContent = "送信失敗";
+      alert("エラー: " + error.message);
+      return;
+    }
+
+    if (statusEl) statusEl.textContent = "メールを確認してください（ログインリンクを送りました）";
+  });
+}
+
+// ログアウト（任意）: コンソールで logout() と打てば実行できます
+window.logout = async () => {
+  await supabaseClient.auth.signOut();
+  location.reload();
+};
+
+// 学習ログ保存
+const saveBtn = document.getElementById("saveStudy");
+if (saveBtn) {
+  saveBtn.addEventListener("click", async () => {
+    const minutesEl = document.getElementById("minutes");
+    const minutes = Number(minutesEl ? minutesEl.value : 0);
+    if (!minutes || minutes <= 0) return alert("分を入力してください");
+
+    // 1) ログイン確認
+    const { data: userData, error: userErr } = await supabaseClient.auth.getUser();
+    if (userErr) {
+      console.error(userErr);
+      return alert("ユーザー取得エラー: " + userErr.message);
+    }
+    const user = userData.user;
+    if (!user) return alert("未ログインです");
+
+    // 2) 先にカテゴリ取得
+    const categoryEl = document.getElementById("category");
+    const category = categoryEl ? categoryEl.value : "Review / Test";
+
+    // 3) insert payload
+    const payload = {
+      user_id: user.id,
+      date: new Date().toISOString().slice(0, 10),
+      category,
+      minutes,
+      memo: null
+    };
+
+    const { data, error } = await supabaseClient
+      .from("study_logs")
+      .insert(payload)
+      .select();
+
+    if (error) {
+      console.error(error);
+      alert("保存エラー: " + error.message);
+      return;
+    }
+
+    console.log("inserted:", data);
+    alert("保存しました！");
+
+    // ★保存後に集計を更新
+    await loadTodaySummary();
+  });
 }
