@@ -1,3 +1,6 @@
+// app.js（全文）
+// Supabase CDN（index.htmlの <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>）を前提
+
 const { createClient } = window.supabase;
 
 const supabaseClient = createClient(
@@ -44,17 +47,18 @@ document.getElementById("login").addEventListener("click", async () => {
   statusEl.textContent = "メールを確認してください（ログインリンクを送りました）";
 });
 
-// ついでにログアウトも作っておく（任意）
+// ログアウト（任意）: コンソールで logout() と打てば実行できます
 window.logout = async () => {
   await supabaseClient.auth.signOut();
   location.reload();
 };
 
+// 学習ログ保存
 document.getElementById("saveStudy").addEventListener("click", async () => {
   const minutes = Number(document.getElementById("minutes").value);
   if (!minutes || minutes <= 0) return alert("分を入力してください");
 
-  // ログイン確認
+  // 1) ログイン確認
   const { data: userData, error: userErr } = await supabaseClient.auth.getUser();
   if (userErr) {
     console.error(userErr);
@@ -63,14 +67,15 @@ document.getElementById("saveStudy").addEventListener("click", async () => {
   const user = userData.user;
   if (!user) return alert("未ログインです");
 
-  // ★ 先に category を取得する（超重要）
-  const category = document.getElementById("category").value;
+  // 2) ★先にカテゴリ取得（ここが重要）
+  const categoryEl = document.getElementById("category");
+  const category = categoryEl ? categoryEl.value : "Review / Test";
 
-  // insert payload
+  // 3) insert payload
   const payload = {
     user_id: user.id,
     date: new Date().toISOString().slice(0, 10),
-    category,   // ← ここで正しい値が入る
+    category,
     minutes,
     memo: null
   };
@@ -78,7 +83,7 @@ document.getElementById("saveStudy").addEventListener("click", async () => {
   const { data, error } = await supabaseClient
     .from("study_logs")
     .insert(payload)
-    .select();
+    .select(); // 返り値を受け取ってデバッグしやすくする
 
   if (error) {
     console.error(error);
@@ -89,4 +94,3 @@ document.getElementById("saveStudy").addEventListener("click", async () => {
   console.log("inserted:", data);
   alert("保存しました！");
 });
-
