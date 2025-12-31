@@ -1,6 +1,6 @@
 const supabase = supabasejs.createClient(
-  "SUPABASE_URL",
-  "SUPABASE_ANON_KEY"
+  "https://bmfvtrrindadbybyighu.supabase.co",
+  "sb_publishable_n5trjK_oSbJrwBKsReMdFA_8mBgihar"
 );
 
 // ログイン
