@@ -50,7 +50,7 @@ window.logout = async () => {
   location.reload();
 };
 
-// 送信ボタン
+// 保存ボタン
 document.getElementById("saveStudy").addEventListener("click", async () => {
   const minutes = Number(document.getElementById("minutes").value);
   if (!minutes || minutes <= 0) return alert("分を入力してください");
@@ -66,12 +66,14 @@ document.getElementById("saveStudy").addEventListener("click", async () => {
 
   // 2) insert（RLS対策として user_id を必ず入れる）
   const payload = {
-    user_id: user.id,
-    date: new Date().toISOString().slice(0, 10),
-    category: "学習",
-    minutes,
-    memo: null
-  };
+  user_id: user.id,
+  date: new Date().toISOString().slice(0, 10),
+  category,
+  minutes,
+  memo: null
+};
+
+  const category = document.getElementById("category").value;
 
   const { data, error } = await supabaseClient
     .from("study_logs")
