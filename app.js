@@ -49,3 +49,41 @@ window.logout = async () => {
   await supabaseClient.auth.signOut();
   location.reload();
 };
+
+// 送信ボタン
+document.getElementById("saveStudy").addEventListener("click", async () => {
+  const minutes = Number(document.getElementById("minutes").value);
+  if (!minutes || minutes <= 0) return alert("分を入力してください");
+
+  // 1) ログイン確認
+  const { data: userData, error: userErr } = await supabaseClient.auth.getUser();
+  if (userErr) {
+    console.error(userErr);
+    return alert("ユーザー取得エラー: " + userErr.message);
+  }
+  const user = userData.user;
+  if (!user) return alert("未ログインです");
+
+  // 2) insert（RLS対策として user_id を必ず入れる）
+  const payload = {
+    user_id: user.id,
+    date: new Date().toISOString().slice(0, 10),
+    category: "学習",
+    minutes,
+    memo: null
+  };
+
+  const { data, error } = await supabaseClient
+    .from("study_logs")
+    .insert(payload)
+    .select(); // これで返り値が来る（デバッグしやすい）
+
+  if (error) {
+    console.error(error);
+    alert("保存エラー: " + error.message);
+    return;
+  }
+
+  console.log("inserted:", data);
+  alert("保存しました！");
+});
