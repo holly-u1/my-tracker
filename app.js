@@ -17,19 +17,49 @@ function formatMinutes(min) {
   return h > 0 ? `${h}時間${r}分` : `${r}分`;
 }
 
+function renderSummary(targetEl, title, rowsData) {
+  if (!targetEl) return;
+
+  const byCategory = {};
+  let total = 0;
+
+  for (const row of rowsData || []) {
+    const cat = row.category || "Uncategorized";
+    const min = Number(row.minutes) || 0;
+    byCategory[cat] = (byCategory[cat] || 0) + min;
+    total += min;
+  }
+
+  const rows = Object.entries(byCategory)
+    .sort((a, b) => b[1] - a[1])
+    .map(([cat, min]) => `<li>${cat}: <b>${formatMinutes(min)}</b></li>`)
+    .join("");
+
+  targetEl.innerHTML = `
+    <div>${title} 合計: <b>${formatMinutes(total)}</b></div>
+    <ul>${rows || "<li>データなし</li>"}</ul>
+  `;
+}
+
+async function getLoggedInUser() {
+  const { data: userData, error } = await supabaseClient.auth.getUser();
+  if (error) throw error;
+  return userData?.user || null;
+}
+
 async function loadTodaySummary() {
   const summaryEl = document.getElementById("summary");
   if (!summaryEl) return;
 
-  // ログインユーザー取得
-  const { data: userData, error: userErr } = await supabaseClient.auth.getUser();
-  if (userErr) {
-    console.error(userErr);
+  let user;
+  try {
+    user = await getLoggedInUser();
+  } catch (e) {
+    console.error(e);
     summaryEl.textContent = "集計の取得に失敗しました";
     return;
   }
 
-  const user = userData?.user;
   if (!user) {
     summaryEl.textContent = "未ログイン";
     return;
@@ -37,7 +67,6 @@ async function loadTodaySummary() {
 
   const today = new Date().toISOString().slice(0, 10);
 
-  // 今日のログを取得（RLSで自分の分だけ見えるが、念のため user_id でも絞る）
   const { data, error } = await supabaseClient
     .from("study_logs")
     .select("category, minutes")
@@ -50,27 +79,45 @@ async function loadTodaySummary() {
     return;
   }
 
-  // 集計（カテゴリ別・合計）
-  const byCategory = {};
-  let total = 0;
+  renderSummary(summaryEl, "今日の", data);
+}
 
-  for (const row of data || []) {
-    const cat = row.category || "Uncategorized";
-    const min = Number(row.minutes) || 0;
-    byCategory[cat] = (byCategory[cat] || 0) + min;
-    total += min;
+async function loadAllTimeSummary() {
+  const summaryAllEl = document.getElementById("summaryAll");
+  if (!summaryAllEl) return;
+
+  let user;
+  try {
+    user = await getLoggedInUser();
+  } catch (e) {
+    console.error(e);
+    summaryAllEl.textContent = "集計の取得に失敗しました";
+    return;
   }
 
-  // 表示（HTML生成）
-  const rows = Object.entries(byCategory)
-    .sort((a, b) => b[1] - a[1])
-    .map(([cat, min]) => `<li>${cat}: <b>${formatMinutes(min)}</b></li>`)
-    .join("");
+  if (!user) {
+    summaryAllEl.textContent = "未ログイン";
+    return;
+  }
 
-  summaryEl.innerHTML = `
-    <div>合計: <b>${formatMinutes(total)}</b></div>
-    <ul>${rows || "<li>データなし</li>"}</ul>
-  `;
+  // 全期間（date条件なし）
+  const { data, error } = await supabaseClient
+    .from("study_logs")
+    .select("category, minutes")
+    .eq("user_id", user.id);
+
+  if (error) {
+    console.error(error);
+    summaryAllEl.textContent = "集計の取得に失敗しました";
+    return;
+  }
+
+  renderSummary(summaryAllEl, "全期間の", data);
+}
+
+async function refreshSummaries() {
+  await loadTodaySummary();
+  await loadAllTimeSummary();
 }
 
 // 初期表示：ログイン状態チェック + 集計表示
@@ -86,8 +133,7 @@ async function loadTodaySummary() {
     }
   }
 
-  // ★ページ表示時にも集計を表示する
-  await loadTodaySummary();
+  await refreshSummaries();
 })();
 
 // Magic Link送信
@@ -119,7 +165,7 @@ if (loginBtn) {
   });
 }
 
-// ログアウト（任意）: コンソールで logout() と打てば実行できます
+// ログアウト（任意）
 window.logout = async () => {
   await supabaseClient.auth.signOut();
   location.reload();
@@ -133,7 +179,7 @@ if (saveBtn) {
     const minutes = Number(minutesEl ? minutesEl.value : 0);
     if (!minutes || minutes <= 0) return alert("分を入力してください");
 
-    // 1) ログイン確認
+    // ログイン確認
     const { data: userData, error: userErr } = await supabaseClient.auth.getUser();
     if (userErr) {
       console.error(userErr);
@@ -142,11 +188,10 @@ if (saveBtn) {
     const user = userData.user;
     if (!user) return alert("未ログインです");
 
-    // 2) 先にカテゴリ取得
+    // カテゴリ取得
     const categoryEl = document.getElementById("category");
     const category = categoryEl ? categoryEl.value : "Review / Test";
 
-    // 3) insert payload
     const payload = {
       user_id: user.id,
       date: new Date().toISOString().slice(0, 10),
@@ -169,7 +214,7 @@ if (saveBtn) {
     console.log("inserted:", data);
     alert("保存しました！");
 
-    // ★保存後に集計を更新
-    await loadTodaySummary();
+    // 保存後に「今日」と「全期間」を両方更新
+    await refreshSummaries();
   });
 }
