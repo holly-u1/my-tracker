@@ -1,28 +1,25 @@
-const supabase = supabasejs.createClient(
+// CDNで読み込まれた supabase から createClient を取得
+const { createClient } = window.supabase;
+
+// 自分用のクライアント名（重要）
+const supabaseClient = createClient(
   "https://bmfvtrrindadbybyighu.supabase.co",
   "sb_publishable_n5trjK_oSbJrwBKsReMdFA_8mBgihar"
 );
 
-// ログイン
-document.getElementById("login").onclick = async () => {
-  await supabase.auth.signInWithOAuth({
-    provider: "google"
-  });
-};
+// ログインボタン
+document.getElementById("login").addEventListener("click", async () => {
+  console.log("login clicked");
 
-// 保存
-document.getElementById("saveStudy").onclick = async () => {
-  const user = (await supabase.auth.getUser()).data.user;
-  if (!user) return alert("先にログインしてください");
-
-  const minutes = Number(document.getElementById("minutes").value);
-
-  await supabase.from("study_logs").insert({
-    user_id: user.id,
-    date: new Date().toISOString().slice(0,10),
-    category: "学習",
-    minutes
+  const { error } = await supabaseClient.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: window.location.origin + window.location.pathname
+    }
   });
 
-  alert("保存しました");
-};
+  if (error) {
+    console.error(error);
+    alert(error.message);
+  }
+});
