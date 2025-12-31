@@ -3,33 +3,43 @@
 <head>
   <meta charset="UTF-8" />
   <title>My Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div class="container">
+    <h1>My Tracker</h1>
 
-  <h1>My Tracker</h1>
+    <p id="status"></p>
 
-  <input id="email" type="email" placeholder="メールアドレス" />
-  <button id="login">ログインリンクを送る</button>
+    <input id="email" type="email" placeholder="メールアドレス" />
+    <button id="login">ログインリンクを送る</button>
 
-  <p id="status"></p>
-  <h2>学習時間</h2>
+    <hr />
 
-  <select id="category">
-    <option value="Listening">Listening</option>
-    <option value="Reading">Reading</option>
-    <option value="Vocabulary & Grammar">Vocabulary & Grammar</option>
-    <option value="Speaking & Writing">Speaking & Writing</option>
-    <option value="Review / Test">Review / Test</option>
-  </select>
-  
-  <input id="minutes" type="number" placeholder="分" min="1" />
-  <button id="saveStudy">保存</button>
+    <h2>学習時間の記録</h2>
 
-  <h3>今日の集計</h3>
-  <div id="summary"></div>
+    <select id="category">
+      <option value="Listening">Listening</option>
+      <option value="Reading">Reading</option>
+      <option value="Vocabulary & Grammar">Vocabulary & Grammar</option>
+      <option value="Speaking & Writing">Speaking & Writing</option>
+      <option value="Review / Test">Review / Test</option>
+    </select>
 
-  <h3>全期間（累計）</h3>
-  <div id="summaryAll"></div>
+    <input id="minutes" type="number" placeholder="分" min="1" />
+    <button id="saveStudy">保存</button>
+
+    <h3>今日の集計</h3>
+    <div id="summary"></div>
+
+    <h3>全期間（累計）</h3>
+    <div id="summaryAll"></div>
+
+    <hr />
+
+    <button class="secondary" onclick="logout()">ログアウト</button>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <script src="app.js"></script>
