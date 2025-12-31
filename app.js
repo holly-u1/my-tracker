@@ -90,17 +90,3 @@ document.getElementById("saveStudy").addEventListener("click", async () => {
   alert("保存しました！");
 });
 
-  const { data, error } = await supabaseClient
-    .from("study_logs")
-    .insert(payload)
-    .select(); // これで返り値が来る（デバッグしやすい）
-
-  if (error) {
-    console.error(error);
-    alert("保存エラー: " + error.message);
-    return;
-  }
-
-  console.log("inserted:", data);
-  alert("保存しました！");
-});
