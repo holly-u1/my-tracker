@@ -50,12 +50,11 @@ window.logout = async () => {
   location.reload();
 };
 
-// 保存ボタン
 document.getElementById("saveStudy").addEventListener("click", async () => {
   const minutes = Number(document.getElementById("minutes").value);
   if (!minutes || minutes <= 0) return alert("分を入力してください");
 
-  // 1) ログイン確認
+  // ログイン確認
   const { data: userData, error: userErr } = await supabaseClient.auth.getUser();
   if (userErr) {
     console.error(userErr);
@@ -64,16 +63,32 @@ document.getElementById("saveStudy").addEventListener("click", async () => {
   const user = userData.user;
   if (!user) return alert("未ログインです");
 
-  // 2) insert（RLS対策として user_id を必ず入れる）
-  const payload = {
-  user_id: user.id,
-  date: new Date().toISOString().slice(0, 10),
-  category,
-  minutes,
-  memo: null
-};
-
+  // ★ 先に category を取得する（超重要）
   const category = document.getElementById("category").value;
+
+  // insert payload
+  const payload = {
+    user_id: user.id,
+    date: new Date().toISOString().slice(0, 10),
+    category,   // ← ここで正しい値が入る
+    minutes,
+    memo: null
+  };
+
+  const { data, error } = await supabaseClient
+    .from("study_logs")
+    .insert(payload)
+    .select();
+
+  if (error) {
+    console.error(error);
+    alert("保存エラー: " + error.message);
+    return;
+  }
+
+  console.log("inserted:", data);
+  alert("保存しました！");
+});
 
   const { data, error } = await supabaseClient
     .from("study_logs")
