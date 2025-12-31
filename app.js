@@ -94,3 +94,60 @@ document.getElementById("saveStudy").addEventListener("click", async () => {
   console.log("inserted:", data);
   alert("保存しました！");
 });
+
+function formatMinutes(min) {
+  const m = Number(min) || 0;
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+  return h > 0 ? `${h}時間${r}分` : `${r}分`;
+}
+
+async function loadTodaySummary() {
+  const summaryEl = document.getElementById("summary");
+  if (!summaryEl) return;
+
+  // ログインユーザー取得
+  const { data: userData } = await supabaseClient.auth.getUser();
+  const user = userData?.user;
+  if (!user) {
+    summaryEl.textContent = "未ログイン";
+    return;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  // 今日のログを取得（自分の分だけ：RLSで守られてる）
+  const { data, error } = await supabaseClient
+    .from("study_logs")
+    .select("category, minutes")
+    .eq("user_id", user.id)
+    .eq("date", today);
+
+  if (error) {
+    console.error(error);
+    summaryEl.textContent = "集計の取得に失敗しました";
+    return;
+  }
+
+  // 集計（カテゴリ別・合計）
+  const byCategory = {};
+  let total = 0;
+
+  for (const row of data || []) {
+    const cat = row.category || "Uncategorized";
+    const min = Number(row.minutes) || 0;
+    byCategory[cat] = (byCategory[cat] || 0) + min;
+    total += min;
+  }
+
+  // 表示（HTML生成）
+  const rows = Object.entries(byCategory)
+    .sort((a, b) => b[1] - a[1])
+    .map(([cat, min]) => `<li>${cat}: <b>${formatMinutes(min)}</b></li>`)
+    .join("");
+
+  summaryEl.innerHTML = `
+    <div>合計: <b>${formatMinutes(total)}</b></div>
+    <ul>${rows || "<li>データなし</li>"}</ul>
+  `;
+}
